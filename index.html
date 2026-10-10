@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Práctica de conjugación verbal en latín clásico.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Palaestra">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#E7EBE8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#161B1C" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<style>
+:root { color-scheme: light; padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+html { background: var(--bg); }
+body { margin: 0; }
+img { max-width: 100%; }
+[hidden] { display: none !important; }
+</style>
+<title>Palaestra Latina</title>
+<link rel="stylesheet" crossorigin="anonymous" href="https://fonts.googleapis.com/css2?family=Gentium+Book+Plus:ital,wght@0,400;0,700;1,400&family=Alegreya+Sans:wght@400;500;700&display=swap">
+<style>
+/* Layout: una losa de piedra con la forma verbal, la ficha de diccionario al lado, y debajo la respuesta en cinco grupos (voz, modo, tiempo, persona, número). */
+:root {
+  --bg: #E7EBE8;
+  --surface: #F6F8F5;
+  --ink: #1D2829;
+  --muted: #586866;
+  --line: #C5CEC9;
+  --accent: #7A1F4D;        /* púrpura */
+  --on-accent: #FFFFFF;
+  --accent-soft: #EFDDE6;
+  --ok: #24634A;
+  --ok-soft: #D9EBE1;
+  --bad: #A13A26;
+  --bad-soft: #F3DED8;
+  --display: "Gentium Book Plus", "Gentium Plus", "Charis SIL", Georgia, "Times New Roman", serif;
+  --ui: "Alegreya Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161B1C; --surface: #1F2628; --ink: #E5EAE6; --muted: #98A7A3; --line: #364140;
+    --accent: #DE93B6; --on-accent: #23101A; --accent-soft: #3A2430;
+    --ok: #7FC7A2; --ok-soft: #1F3A2E; --bad: #EA917A; --bad-soft: #43251E;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #161B1C; --surface: #1F2628; --ink: #E5EAE6; --muted: #98A7A3; --line: #364140;
+  --accent: #DE93B6; --on-accent: #23101A; --accent-soft: #3A2430;
+  --ok: #7FC7A2; --ok-soft: #1F3A2E; --bad: #EA917A; --bad-soft: #43251E;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-size: 17px; line-height: 1.45; -webkit-tap-highlight-color: transparent; }
+.opt, .chip, .go, .check, .practice summary { touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.wrap { max-width: 900px; margin-inline: auto; padding-inline: 20px; padding-block: 28px 56px; display: flex; flex-direction: column; gap: 28px; }
+
+/* Cabecera */
+.top { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 24px; border-bottom: 1px solid var(--line); padding-bottom: 14px; }
+.brand { font-family: var(--display); font-size: 1.7rem; font-weight: 700; letter-spacing: .01em; margin: 0; }
+.brand small { font-family: var(--ui); font-weight: 400; font-size: .95rem; color: var(--muted); margin-left: 10px; letter-spacing: 0; }
+.nav { display: flex; flex-wrap: wrap; gap: 6px; }
+.nav a { color: var(--muted); text-decoration: none; padding: 4px 10px; border: 1px solid transparent; border-radius: 2px; font-weight: 500; }
+.nav a[aria-current="page"] { color: var(--accent); border-color: var(--accent); }
+
+/* Barra del ejercicio */
+.bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; }
+.bar h2 { font-size: 1.05rem; font-weight: 700; margin: 0; }
+.bar h2 span { font-weight: 400; color: var(--muted); }
+.stats { display: flex; flex-wrap: wrap; gap: 4px 18px; color: var(--muted); font-variant-numeric: tabular-nums; align-items: center; }
+.stats b { color: var(--ink); font-weight: 700; }
+.link { background: none; border: 0; padding: 0; font: inherit; color: var(--muted); text-decoration: underline; cursor: pointer; }
+.link:hover { color: var(--ink); }
+
+/* Qué practicar */
+.practice { border-block: 1px solid var(--line); }
+.practice summary { display: flex; align-items: baseline; gap: 12px; padding: 10px 0; cursor: pointer; list-style: none; }
+.practice summary::-webkit-details-marker { display: none; }
+.practice summary::after { content: "▾"; margin-left: auto; color: var(--muted); }
+.practice[open] summary::after { content: "▴"; }
+.practice summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.psum { min-width: 0; }
+.pbody { display: flex; flex-direction: column; gap: 14px; padding: 4px 0 14px; }
+.sets { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 28px; }
+.set { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.set > b { font-weight: 500; color: var(--muted); margin-right: 4px; }
+.chip { position: relative; cursor: pointer; }
+.chip input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.chip span { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 2px; color: var(--muted); font-weight: 500; }
+.chip span::before { content: "+"; font-weight: 700; width: .8em; text-align: center; }
+.chip input:checked + span { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.chip input:checked + span::before { content: "✓"; }
+.chip input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Escena: losa + ficha */
+.stage { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; align-items: stretch; }
+.slab { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 2px; outline: 1px solid var(--line); outline-offset: -9px; padding: 44px 28px 40px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; min-height: 200px; }
+.slab .num { position: absolute; top: 18px; left: 22px; font-family: var(--display); color: var(--muted); font-size: .95rem; letter-spacing: .08em; }
+.form { font-family: var(--display); font-size: clamp(2.1rem, 7.2vw, 4.1rem); line-height: 1.1; margin: 0; font-weight: 400; overflow-wrap: anywhere; }
+.form.long { font-size: clamp(1.8rem, 5.6vw, 3.2rem); }
+
+.entry { border: 1px solid var(--line); border-radius: 2px; padding: 18px 20px; display: flex; flex-direction: column; gap: 12px; justify-content: center; min-width: 0; }
+.label { font-size: .78rem; text-transform: uppercase; letter-spacing: .12em; color: var(--muted); font-weight: 700; margin: 0; }
+.entry dl { margin: 0; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 14px; align-items: baseline; }
+.entry dt { color: var(--muted); font-size: .88rem; white-space: nowrap; }
+.entry dd { margin: 0; font-family: var(--display); font-size: 1.22rem; overflow-wrap: anywhere; }
+.entry dd .first { color: var(--muted); font-size: 1.05rem; }
+.gloss { margin: 0; font-style: italic; color: var(--ink); }
+.gloss span { font-style: normal; color: var(--muted); }
+
+/* Respuesta */
+.answer { display: flex; flex-direction: column; gap: 16px; }
+fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
+legend { padding: 0; margin-bottom: 8px; }
+.opts { display: grid; gap: 8px; }
+.opts.c2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.opts.c3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pair { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 16px; }
+.pair.rev { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
+.pair.solo { grid-template-columns: minmax(0, 1fr); }
+.opt { position: relative; display: block; cursor: pointer; }
+.opt input { position: absolute; opacity: 0; inset: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.opt span { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 2px; background: var(--surface); font-weight: 500; line-height: 1.2; }
+.opt kbd { font: 500 .75rem var(--ui); color: var(--muted); border: 1px solid var(--line); border-radius: 2px; padding: 0 5px; flex: none; }
+.opt i { font-style: normal; }
+.opt .short { display: none; }
+@media (hover: hover) { .opt:hover input:not(:disabled) + span { border-color: var(--muted); } }
+.opt input:checked + span { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.opt input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+.opt input:disabled { cursor: default; }
+.answer .opt.right span { border-color: var(--ok); background: var(--ok-soft); box-shadow: inset 0 0 0 1px var(--ok); }
+.answer .opt.wrong span { border-color: var(--bad); background: var(--bad-soft); box-shadow: inset 0 0 0 1px var(--bad); text-decoration: line-through; }
+.opt.right kbd, .opt.wrong kbd { display: none; }
+.opt.right span::after { content: "✓"; color: var(--ok); font-weight: 700; }
+.opt.wrong span::after { content: "✗"; color: var(--bad); font-weight: 700; text-decoration: none; display: inline-block; }
+
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.go { font: 700 1.05rem var(--ui); background: var(--accent); color: var(--on-accent); border: 1px solid var(--accent); border-radius: 2px; padding: 11px 26px; cursor: pointer; min-width: 170px; }
+.go:disabled { background: transparent; color: var(--muted); border-color: var(--line); cursor: not-allowed; }
+.go:focus-visible, .link:focus-visible, .check input:focus-visible, .nav a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.check { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); cursor: pointer; }
+.check input { accent-color: var(--accent); width: 16px; height: 16px; margin: 0; }
+
+/* Resultado */
+.result { border-top: 1px solid var(--line); padding-top: 18px; scroll-margin-block: 12px; display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 16px 32px; align-items: start; }
+.verdict { font-weight: 700; font-size: 1.15rem; margin: 0 0 4px; }
+.verdict.ok { color: var(--ok); }
+.verdict.bad { color: var(--bad); }
+.result p { margin: 0 0 6px; }
+.result .lat { font-family: var(--display); font-size: 1.15em; }
+.result .also { color: var(--muted); }
+.paradigm .label { margin-bottom: 8px; }
+.paradigm .cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 18px; }
+.paradigm ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; font-family: var(--display); font-size: 1.08rem; }
+.paradigm li { padding: 1px 6px; overflow-wrap: anywhere; border-radius: 2px; }
+.paradigm li i { font: 400 .8rem var(--ui); color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+.paradigm li.hit { background: var(--ok-soft); color: var(--ok); font-weight: 700; }
+.paradigm li.hit i { color: inherit; }
+
+/* Teléfono: todo en una columna compacta y el botón principal fijo al borde inferior. */
+@media (max-width: 640px) {
+  body { font-size: 16px; }
+  .wrap { padding-inline: 16px; padding-block: 14px 96px; gap: 14px; }
+  .top { padding-bottom: 10px; align-items: center; }
+  .brand { font-size: 1.35rem; }
+  .brand small { display: none; }
+  .ex { gap: 12px !important; }
+  .bar h2 { display: none; }
+  .stats { font-size: .92rem; gap: 2px 14px; }
+  .practice summary { padding: 8px 0; }
+  .stage { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .slab { min-height: 100px; padding: 30px 16px 20px; outline-offset: -6px; }
+  .slab .num { top: 12px; left: 16px; font-size: .85rem; }
+  .entry { padding: 10px 14px; gap: 2px; text-align: center; }
+  .entry .label { display: none; }
+  .entry dl { display: block; }
+  .entry dt { display: none; }
+  .entry dd { display: inline; font-size: 1.12rem; }
+  .entry dd:not(:last-of-type)::after { content: ","; }
+  .opt kbd { display: none; }
+  .gloss { font-size: .95rem; }
+  .answer { gap: 10px; }
+  legend { margin-bottom: 5px; }
+  .opts { gap: 6px; }
+  .opts.tense { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); grid-auto-flow: column; }
+  .opt span { padding: 6px 8px; justify-content: center; text-align: center; }
+  .pair.rev { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+  .pair { gap: 10px; }
+  .opt .full { display: none; }
+  .opt .short { display: inline; }
+  .actions { position: fixed; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--bg); border-top: 1px solid var(--line);
+    padding: 10px max(16px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); }
+  .go { width: 100%; min-height: 48px; }
+  .result { grid-template-columns: minmax(0, 1fr); padding-top: 14px; scroll-margin-bottom: 96px; }
+}
+@media (hover: none) { .opt kbd { display: none; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 class="brand">Palaestra Latina <small>práctica de latín clásico</small></h1>
+    <nav class="nav" id="nav" aria-label="Ejercicios"></nav>
+  </header>
+
+  <main id="app"></main>
+</div>
+
+<script>
+/* ============================================================
+   Motor de conjugación
+   Cada forma es { voice, mood, tense, person, num, form }.
+   ============================================================ */
+const TENSES = [
+  { id: 'pres', es: 'Presente' },
+  { id: 'impf', es: 'Pretérito imperfecto' },
+  { id: 'fut',  es: 'Futuro' },
+  { id: 'perf', es: 'Pretérito perfecto' },
+  { id: 'plup', es: 'Pluscuamperfecto' },
+  { id: 'futp', es: 'Futuro perfecto' },
+];
+const TENSE = Object.fromEntries(TENSES.map(t => [t.id, t]));
+const VOICES = [{ id: 'act', es: 'Activa' }, { id: 'pas', es: 'Pasiva' }];
+const MOODS = [{ id: 'ind', es: 'Indicativo' }, { id: 'subj', es: 'Subjuntivo' }, { id: 'imp', es: 'Imperativo' }];
+const VOICE_ES = { act: 'activa', pas: 'pasiva' };
+const MOOD_ES = { ind: 'indicativo', subj: 'subjuntivo', imp: 'imperativo' };
+const NUM_ES = { sg: 'singular', pl: 'plural' };
+
+/* Conjuntos que se pueden practicar (voz + modo). */
+const CATS = [
+  { id: 'act-ind', voice: 'act', mood: 'ind' },
+  { id: 'act-subj', voice: 'act', mood: 'subj' },
+  { id: 'act-imp', voice: 'act', mood: 'imp' },
+  { id: 'pas-ind', voice: 'pas', mood: 'ind' },
+  { id: 'pas-subj', voice: 'pas', mood: 'subj' },
+];
+
+const six = (s, ends) => ends.map(e => s + e);
+const INF_END = { '1': 'āre', '2': 'ēre', '3': 'ere', '3io': 'ere', '4': 'īre' };
+const THEME   = { '1': 'ā', '2': 'ē', '3': 'ē', '3io': 'iē', '4': 'iē' };   /* vocal ante -ba- */
+
+/* Activa */
+const PRES = {
+  '1':   ['ō', 'ās', 'at', 'āmus', 'ātis', 'ant'],
+  '2':   ['eō', 'ēs', 'et', 'ēmus', 'ētis', 'ent'],
+  '3':   ['ō', 'is', 'it', 'imus', 'itis', 'unt'],
+  '3io': ['iō', 'is', 'it', 'imus', 'itis', 'iunt'],
+  '4':   ['iō', 'īs', 'it', 'īmus', 'ītis', 'iunt'],
+};
+const BAM = ['bam', 'bās', 'bat', 'bāmus', 'bātis', 'bant'];
+const BO  = ['bō', 'bis', 'bit', 'bimus', 'bitis', 'bunt'];
+const AM  = ['am', 'ēs', 'et', 'ēmus', 'ētis', 'ent'];          /* futuro 3.ª/4.ª */
+const A_M = ['am', 'ās', 'at', 'āmus', 'ātis', 'ant'];          /* subjuntivo en -a- */
+const E_M = ['em', 'ēs', 'et', 'ēmus', 'ētis', 'ent'];          /* subjuntivo en -e- */
+const ERAM = ['eram', 'erās', 'erat', 'erāmus', 'erātis', 'erant'];
+const ERO  = ['erō', 'eris', 'erit', 'erimus', 'eritis', 'erunt'];
+const bam = s => six(s, BAM), bo = s => six(s, BO), am = s => six(s, AM);
+const eram = s => six(s, ERAM), ero = s => six(s, ERO);
+
+/* Pasiva */
+const P_PRES = {
+  '1':   ['or', 'āris', 'ātur', 'āmur', 'āminī', 'antur'],
+  '2':   ['eor', 'ēris', 'ētur', 'ēmur', 'ēminī', 'entur'],
+  '3':   ['or', 'eris', 'itur', 'imur', 'iminī', 'untur'],
+  '3io': ['ior', 'eris', 'itur', 'imur', 'iminī', 'iuntur'],
+  '4':   ['ior', 'īris', 'ītur', 'īmur', 'īminī', 'iuntur'],
+};
+const BAR = ['bar', 'bāris', 'bātur', 'bāmur', 'bāminī', 'bantur'];
+const BOR = ['bor', 'beris', 'bitur', 'bimur', 'biminī', 'buntur'];
+const AR_FUT  = ['ar', 'ēris', 'ētur', 'ēmur', 'ēminī', 'entur'];
+const AR_SUBJ = ['ar', 'āris', 'ātur', 'āmur', 'āminī', 'antur'];
+const ER      = ['er', 'ēris', 'ētur', 'ēmur', 'ēminī', 'entur'];
+const SUM = ['sum', 'es', 'est', 'sumus', 'estis', 'sunt'];
+const SIM = ['sim', 'sīs', 'sit', 'sīmus', 'sītis', 'sint'];
+
+/* Imperativo */
+const IMP = {
+  sg:  { '1': 'ā', '2': 'ē', '3': 'e', '3io': 'e', '4': 'ī' },
+  pl:  { '1': 'āte', '2': 'ēte', '3': 'ite', '3io': 'ite', '4': 'īte' },
+  to:  { '1': 'ātō', '2': 'ētō', '3': 'itō', '3io': 'itō', '4': 'ītō' },
+  nto: { '1': 'antō', '2': 'entō', '3': 'untō', '3io': 'iuntō', '4': 'iuntō' },
+};
+const IMP_SHORT = { 'dīcere': 'dīc', 'dūcere': 'dūc', 'facere': 'fac' };
+
+const CONJ_ES = { '1': '1.ª conjugación', '2': '2.ª conjugación', '3': '3.ª conjugación', '3io': '3.ª conjugación mixta (-iō)', '4': '4.ª conjugación', 'irr': 'verbo irregular' };
+
+/* infinitivo | tema de perfecto | supino | conjugación | significado */
+const REGULAR = `
+amāre|amāv|amātum|1|amar
+laudāre|laudāv|laudātum|1|alabar
+vocāre|vocāv|vocātum|1|llamar
+portāre|portāv|portātum|1|llevar
+pugnāre|pugnāv|pugnātum|1|luchar
+nārrāre|nārrāv|nārrātum|1|contar, narrar
+parāre|parāv|parātum|1|preparar
+rogāre|rogāv|rogātum|1|preguntar, pedir
+labōrāre|labōrāv|labōrātum|1|trabajar
+cōgitāre|cōgitāv|cōgitātum|1|pensar
+nāvigāre|nāvigāv|nāvigātum|1|navegar
+servāre|servāv|servātum|1|guardar, salvar
+spectāre|spectāv|spectātum|1|mirar
+ambulāre|ambulāv|ambulātum|1|caminar
+habitāre|habitāv|habitātum|1|habitar
+clāmāre|clāmāv|clāmātum|1|gritar
+stāre|stet|statum|1|estar de pie
+iuvāre|iūv|iūtum|1|ayudar
+monēre|monu|monitum|2|advertir
+habēre|habu|habitum|2|tener
+vidēre|vīd|vīsum|2|ver
+movēre|mōv|mōtum|2|mover
+tenēre|tenu|tentum|2|sostener
+docēre|docu|doctum|2|enseñar
+dēbēre|dēbu|dēbitum|2|deber
+manēre|māns|mānsum|2|permanecer
+iubēre|iuss|iussum|2|ordenar
+respondēre|respond|respōnsum|2|responder
+sedēre|sēd|sessum|2|estar sentado
+terrēre|terru|territum|2|asustar
+timēre|timu||2|temer
+dēlēre|dēlēv|dēlētum|2|destruir
+rīdēre|rīs|rīsum|2|reír
+augēre|aux|auctum|2|aumentar
+tacēre|tacu|tacitum|2|callar
+placēre|placu|placitum|2|agradar
+regere|rēx|rēctum|3|gobernar
+dūcere|dūx|ductum|3|conducir
+dīcere|dīx|dictum|3|decir
+mittere|mīs|missum|3|enviar
+scrībere|scrīps|scrīptum|3|escribir
+legere|lēg|lēctum|3|leer
+agere|ēg|āctum|3|hacer, llevar
+pōnere|posu|positum|3|poner
+vincere|vīc|victum|3|vencer
+currere|cucurr|cursum|3|correr
+petere|petīv|petītum|3|pedir, dirigirse a
+quaerere|quaesīv|quaesītum|3|buscar, preguntar
+relinquere|relīqu|relictum|3|dejar, abandonar
+vīvere|vīx|vīctum|3|vivir
+bibere|bib||3|beber
+vertere|vert|versum|3|girar, volver
+dēfendere|dēfend|dēfēnsum|3|defender
+claudere|claus|clausum|3|cerrar
+cadere|cecid|cāsum|3|caer
+gerere|gess|gestum|3|llevar, hacer
+trahere|trāx|tractum|3|arrastrar
+crēdere|crēdid|crēditum|3|creer
+emere|ēm|ēmptum|3|comprar
+lūdere|lūs|lūsum|3|jugar
+cognōscere|cognōv|cognitum|3|conocer
+solvere|solv|solūtum|3|soltar, pagar
+surgere|surrēx|surrēctum|3|levantarse
+tangere|tetig|tāctum|3|tocar
+canere|cecin|cantum|3|cantar
+colere|colu|cultum|3|cultivar, honrar
+pellere|pepul|pulsum|3|empujar, expulsar
+frangere|frēg|frāctum|3|romper
+iungere|iūnx|iūnctum|3|unir
+sūmere|sūmps|sūmptum|3|tomar
+cēdere|cess|cessum|3|ceder, retirarse
+discere|didic||3|aprender
+tollere|sustul|sublātum|3|levantar, quitar
+ostendere|ostend|ostentum|3|mostrar
+ascendere|ascend|ascēnsum|3|subir
+capere|cēp|captum|3io|tomar, capturar
+facere|fēc|factum|3io|hacer
+iacere|iēc|iactum|3io|lanzar
+fugere|fūg|fugitum|3io|huir
+accipere|accēp|acceptum|3io|recibir
+cupere|cupīv|cupītum|3io|desear
+rapere|rapu|raptum|3io|arrebatar
+cōnspicere|cōnspex|cōnspectum|3io|observar
+interficere|interfēc|interfectum|3io|matar
+incipere|incēp|inceptum|3io|comenzar
+audīre|audīv|audītum|4|oír
+venīre|vēn|ventum|4|venir
+dormīre|dormīv|dormītum|4|dormir
+scīre|scīv|scītum|4|saber
+sentīre|sēns|sēnsum|4|sentir
+aperīre|aperu|apertum|4|abrir
+invenīre|invēn|inventum|4|encontrar
+mūnīre|mūnīv|mūnītum|4|fortificar
+pūnīre|pūnīv|pūnītum|4|castigar
+custōdīre|custōdīv|custōdītum|4|custodiar
+reperīre|repper|repertum|4|hallar
+nescīre|nescīv|nescītum|4|no saber
+fīnīre|fīnīv|fīnītum|4|terminar
+pervenīre|pervēn|perventum|4|llegar
+`.trim().split('\n').map(l => {
+  const [inf, perf, sup, conj, es] = l.split('|');
+  return { inf, perf, sup: sup || null, conj, es };
+});
+
+/* Verbos que no se practican en pasiva (intransitivos o de pasiva rara; facere usa fīō). */
+const NO_PASSIVE = new Set(('stāre labōrāre nāvigāre ambulāre pugnāre clāmāre manēre sedēre tacēre placēre timēre respondēre rīdēre ' +
+  'currere vīvere cadere cēdere surgere bibere discere lūdere fugere facere venīre dormīre pervenīre nescīre scīre').split(' '));
+
+const IRREGULAR = [
+  { inf: 'esse', pres1: 'sum', perf: 'fu', sup: null, es: 'ser, estar',
+    pres: SUM, impf: eram(''), fut: ero(''), subj: SIM,
+    imp: ['es', 'este'], impFut: ['estō', 'estō', 'estōte', 'suntō'] },
+  { inf: 'posse', pres1: 'possum', perf: 'potu', sup: null, es: 'poder',
+    pres: ['possum', 'potes', 'potest', 'possumus', 'potestis', 'possunt'], impf: eram('pot'), fut: ero('pot'),
+    subj: six('poss', ['im', 'īs', 'it', 'īmus', 'ītis', 'int']) },
+  { inf: 'īre', pres1: 'eō', perf: 'i', sup: 'itum', es: 'ir', perfInf: 'īsse',
+    pres: ['eō', 'īs', 'it', 'īmus', 'ītis', 'eunt'], impf: bam('ī'), fut: bo('ī'), subj: six('e', A_M),
+    perfForms: ['iī', 'īstī', 'iit', 'iimus', 'īstis', 'iērunt'],
+    imp: ['ī', 'īte'], impFut: ['ītō', 'ītō', 'ītōte', 'euntō'] },
+  { inf: 'ferre', pres1: 'ferō', perf: 'tul', sup: 'lātum', es: 'llevar, soportar',
+    pres: ['ferō', 'fers', 'fert', 'ferimus', 'fertis', 'ferunt'], impf: bam('ferē'), fut: am('fer'), subj: six('fer', A_M),
+    imp: ['fer', 'ferte'], impFut: ['fertō', 'fertō', 'fertōte', 'feruntō'],
+    pass: { pres: ['feror', 'ferris', 'fertur', 'ferimur', 'feriminī', 'feruntur'], impf: six('ferē', BAR), fut: six('fer', AR_FUT), subj: six('fer', AR_SUBJ) } },
+  { inf: 'velle', pres1: 'volō', perf: 'volu', sup: null, es: 'querer',
+    pres: ['volō', 'vīs', 'vult', 'volumus', 'vultis', 'volunt'], impf: bam('volē'), fut: am('vol'),
+    subj: six('vel', ['im', 'īs', 'it', 'īmus', 'ītis', 'int']) },
+  { inf: 'nōlle', pres1: 'nōlō', perf: 'nōlu', sup: null, es: 'no querer',
+    pres: ['nōlō', 'nōn vīs', 'nōn vult', 'nōlumus', 'nōn vultis', 'nōlunt'], impf: bam('nōlē'), fut: am('nōl'),
+    subj: six('nōl', ['im', 'īs', 'it', 'īmus', 'ītis', 'int']),
+    imp: ['nōlī', 'nōlīte'], impFut: ['nōlītō', 'nōlītō', 'nōlītōte', 'nōluntō'] },
+  { inf: 'mālle', pres1: 'mālō', perf: 'mālu', sup: null, es: 'preferir',
+    pres: ['mālō', 'māvīs', 'māvult', 'mālumus', 'māvultis', 'mālunt'], impf: bam('mālē'), fut: am('māl'),
+    subj: six('māl', ['im', 'īs', 'it', 'īmus', 'ītis', 'int']) },
+  { inf: 'dare', pres1: 'dō', perf: 'ded', sup: 'datum', es: 'dar',
+    pres: ['dō', 'dās', 'dat', 'damus', 'datis', 'dant'], impf: bam('da'), fut: bo('da'), subj: six('d', E_M),
+    imp: ['dā', 'date'], impFut: ['datō', 'datō', 'datōte', 'dantō'] },
+].map(v => ({ ...v, conj: 'irr' }));
+
+const VERBS = [...REGULAR, ...IRREGULAR];
+const perfInf = v => v.perfInf || v.perf + 'isse';
+const stripMacrons = s => s.normalize('NFD').replace(/̄/g, '').normalize('NFC');
+
+function conjugate(v) {
+  const out = [];
+  const add6 = (voice, mood, tense, forms) => forms.forEach((form, i) =>
+    out.push({ voice, mood, tense, person: (i % 3) + 1, num: i < 3 ? 'sg' : 'pl', form }));
+  const add = (voice, mood, tense, person, num, form) => out.push({ voice, mood, tense, person, num, form });
+  const c = v.conj, irr = c === 'irr';
+  const stem = irr ? null : v.inf.slice(0, -INF_END[c].length);
+  const infBase = v.inf.slice(0, -1);               /* amār-, ess-, ferr- */
+  const iStem = stem + (c === '3io' || c === '4' ? 'i' : '');
+
+  /* --- Activa, indicativo --- */
+  add6('act', 'ind', 'pres', irr ? v.pres : six(stem, PRES[c]));
+  add6('act', 'ind', 'impf', irr ? v.impf : bam(stem + THEME[c]));
+  add6('act', 'ind', 'fut',  irr ? v.fut : c === '1' ? bo(stem + 'ā') : c === '2' ? bo(stem + 'ē') : am(iStem));
+  add6('act', 'ind', 'perf', v.perfForms || six(v.perf, ['ī', 'istī', 'it', 'imus', 'istis', 'ērunt']));
+  add6('act', 'ind', 'plup', six(v.perf, ERAM));
+  add6('act', 'ind', 'futp', six(v.perf, ['erō', 'eris', 'erit', 'erimus', 'eritis', 'erint']));
+
+  /* --- Activa, subjuntivo --- */
+  add6('act', 'subj', 'pres', irr ? v.subj : c === '1' ? six(stem, E_M) : c === '2' ? six(stem + 'e', A_M) : six(iStem, A_M));
+  add6('act', 'subj', 'impf', six(infBase, E_M));
+  add6('act', 'subj', 'perf', six(v.perf, ['erim', 'erīs', 'erit', 'erīmus', 'erītis', 'erint']));
+  add6('act', 'subj', 'plup', six(perfInf(v).slice(0, -1), E_M));
+
+  /* --- Activa, imperativo --- */
+  const imp = irr ? v.imp : [IMP_SHORT[v.inf] || stem + IMP.sg[c], stem + IMP.pl[c]];
+  const impFut = irr ? v.impFut : [stem + IMP.to[c], stem + IMP.to[c], stem + IMP.to[c] + 'te', stem + IMP.nto[c]];
+  if (imp) { add('act', 'imp', 'pres', 2, 'sg', imp[0]); add('act', 'imp', 'pres', 2, 'pl', imp[1]); }
+  if (impFut) {
+    add('act', 'imp', 'fut', 2, 'sg', impFut[0]); add('act', 'imp', 'fut', 3, 'sg', impFut[1]);
+    add('act', 'imp', 'fut', 2, 'pl', impFut[2]); add('act', 'imp', 'fut', 3, 'pl', impFut[3]);
+  }
+
+  /* --- Pasiva --- */
+  if (v.sup && !NO_PASSIVE.has(v.inf) && (!irr || v.pass)) {
+    const p = v.pass;
+    add6('pas', 'ind', 'pres', p ? p.pres : six(stem, P_PRES[c]));
+    add6('pas', 'ind', 'impf', p ? p.impf : six(stem + THEME[c], BAR));
+    add6('pas', 'ind', 'fut',  p ? p.fut : c === '1' ? six(stem + 'ā', BOR) : c === '2' ? six(stem + 'ē', BOR) : six(iStem, AR_FUT));
+    add6('pas', 'subj', 'pres', p ? p.subj : c === '1' ? six(stem, ER) : c === '2' ? six(stem + 'e', AR_SUBJ) : six(iStem, AR_SUBJ));
+    add6('pas', 'subj', 'impf', six(infBase, ER));
+    const part = v.sup.slice(0, -2);                /* amāt- */
+    const peri = aux => aux.map((a, i) => part + (i < 3 ? 'us ' : 'ī ') + a);
+    add6('pas', 'ind', 'perf', peri(SUM));
+    add6('pas', 'ind', 'plup', peri(ERAM));
+    add6('pas', 'ind', 'futp', peri(ERO));
+    add6('pas', 'subj', 'perf', peri(SIM));
+    add6('pas', 'subj', 'plup', peri(six('ess', E_M)));
+  }
+  return out;
+}
+
+const sameSlot = (a, b) => a.voice === b.voice && a.mood === b.mood && a.tense === b.tense && a.person === b.person && a.num === b.num;
+const describe = e => `${e.person}.ª persona del ${NUM_ES[e.num]} del ${TENSE[e.tense].es.toLowerCase()} de ${MOOD_ES[e.mood]}, voz ${VOICE_ES[e.voice]}`;
+
+function toRoman(n) {
+  const map = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
+  let s = ''; for (const [v, r] of map) while (n >= v) { s += r; n -= v; } return s;
+}
+
+/* ============================================================
+   Interfaz
+   ============================================================ */
+if (typeof document !== 'undefined') (function () {
+  const KEY = 'palaestra.v1';
+  const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
+  const save = d => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} };
+  const store = Object.assign({ ok: 0, total: 0, streak: 0, best: 0, macrons: true, cats: CATS.map(c => c.id) }, load());
+  store.cats = (Array.isArray(store.cats) ? store.cats : []).filter(id => CATS.some(c => c.id === id));
+  if (!store.cats.length) store.cats = CATS.map(c => c.id);
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const rnd = n => Math.floor(Math.random() * n);
+
+  /* Registro de ejercicios: cada nuevo ejercicio se añade aquí. */
+  const EXERCISES = [
+    { id: 'conjugacion', nav: 'Conjugación', title: 'Conjugación verbal', sub: 'análisis de formas', mount: mountConjugation },
+  ];
+
+  const app = document.getElementById('app');
+  const nav = document.getElementById('nav');
+  let keyHandler = null;
+  document.addEventListener('keydown', e => keyHandler && keyHandler(e));
+
+  function route() {
+    const id = location.hash.slice(1);
+    const ex = EXERCISES.find(x => x.id === id) || EXERCISES[0];
+    nav.innerHTML = EXERCISES.map(x => `<a href="#${x.id}"${x === ex ? ' aria-current="page"' : ''}>${esc(x.nav)}</a>`).join('');
+    keyHandler = null;
+    ex.mount(app, ex);
+  }
+  window.addEventListener('hashchange', route);
+  route();
+
+  /* ---------- Ejercicio 1: analizar una forma verbal ---------- */
+  function mountConjugation(root, ex) {
+    const st = { verb: null, entry: null, table: [], checked: false, n: 0 };
+    const show = f => (store.macrons ? f : stripMacrons(f));
+    const opt = (name, id, value, text, key, short) =>
+      `<label class="opt"><input type="radio" name="${name}" id="${id}" value="${value}"${short ? ` aria-label="${text}"` : ''}><span>${short ? `<i class="full">${text}</i><i class="short">${short}</i>` : text}<kbd>${key}</kbd></span></label>`;
+    const chip = c => `<label class="chip"><input type="checkbox" id="cat-${c.id}" value="${c.id}"><span>${MOODS.find(m => m.id === c.mood).es}</span></label>`;
+
+    root.innerHTML = `
+      <div class="ex" style="display:flex;flex-direction:column;gap:22px">
+        <div class="bar">
+          <h2>${esc(ex.title)} <span>· ${esc(ex.sub)}</span></h2>
+          <div class="stats" id="stats"></div>
+        </div>
+
+        <details class="practice" id="practice">
+          <summary><span class="label">Qué practicar</span><span class="psum" id="psum"></span></summary>
+          <div class="pbody">
+            <div class="sets" id="sets">
+              <div class="set"><b>Voz activa</b>${CATS.filter(c => c.voice === 'act').map(chip).join('')}</div>
+              <div class="set"><b>Voz pasiva</b>${CATS.filter(c => c.voice === 'pas').map(chip).join('')}</div>
+              <button class="link" type="button" id="all">Todo al azar</button>
+            </div>
+            <label class="check"><input type="checkbox" id="macrons"> Mostrar cantidades vocálicas (ā, ē, ī…)</label>
+          </div>
+        </details>
+
+        <section class="stage">
+          <div class="slab">
+            <span class="num" id="num"></span>
+            <p class="form" id="form" lang="la"></p>
+          </div>
+          <aside class="entry" aria-label="Enunciado del verbo">
+            <p class="label">Enunciado</p>
+            <dl id="entry"></dl>
+            <p class="gloss" id="gloss"></p>
+          </aside>
+        </section>
+
+        <form class="answer" id="answer" autocomplete="off">
+          <div class="pair rev" id="vm">
+            <fieldset id="fs-voice">
+              <legend class="label">Voz</legend>
+              <div class="opts c2">${opt('voice', 'v-act', 'act', 'Activa', 'A')}${opt('voice', 'v-pas', 'pas', 'Pasiva', 'Z')}</div>
+            </fieldset>
+            <fieldset id="fs-mood">
+              <legend class="label">Modo</legend>
+              <div class="opts c3">${opt('mood', 'm-ind', 'ind', 'Indicativo', 'I')}${opt('mood', 'm-subj', 'subj', 'Subjuntivo', 'J')}${opt('mood', 'm-imp', 'imp', 'Imperativo', 'M')}</div>
+            </fieldset>
+          </div>
+          <fieldset>
+            <legend class="label">Tiempo</legend>
+            <div class="opts c3 tense">${TENSES.map((t, i) => opt('tense', 't-' + t.id, t.id, t.es, i + 1, t.es.startsWith('Pretérito') ? t.es.replace('Pretérito', 'Pret.') : null)).join('')}</div>
+          </fieldset>
+          <div class="pair">
+            <fieldset>
+              <legend class="label">Persona</legend>
+              <div class="opts c3">${opt('person', 'p-1', 1, 'Primera', 'Q', '1.ª')}${opt('person', 'p-2', 2, 'Segunda', 'W', '2.ª')}${opt('person', 'p-3', 3, 'Tercera', 'E', '3.ª')}</div>
+            </fieldset>
+            <fieldset>
+              <legend class="label">Número</legend>
+              <div class="opts c2">${opt('num', 'n-sg', 'sg', 'Singular', 'S', 'Sing.')}${opt('num', 'n-pl', 'pl', 'Plural', 'P', 'Plur.')}</div>
+            </fieldset>
+          </div>
+          <div class="actions">
+            <button class="go" id="go" type="submit" disabled>Comprobar</button>
+          </div>
+        </form>
+
+        <section class="result" id="result" aria-live="polite" hidden></section>
+      </div>`;
+
+    const $ = id => root.querySelector('#' + id);
+    const form = $('answer'), go = $('go'), result = $('result'), macrons = $('macrons');
+    const GROUPS = ['voice', 'mood', 'tense', 'person', 'num'];
+    const KEYS = { a: 'v-act', z: 'v-pas', i: 'm-ind', j: 'm-subj', m: 'm-imp', q: 'p-1', w: 'p-2', e: 'p-3', s: 'n-sg', p: 'n-pl',
+      1: 't-pres', 2: 't-impf', 3: 't-fut', 4: 't-perf', 5: 't-plup', 6: 't-futp' };
+    const radios = [...form.querySelectorAll('input[type=radio]')];
+    const chips = [...root.querySelectorAll('#sets input')];
+    const picked = name => (form.querySelector(`input[name=${name}]:checked`) || {}).value;
+    /* Si todos los conjuntos elegidos comparten voz (o modo), ese dato ya se conoce y no se pregunta. */
+    const fx = { voice: null, mood: null };
+    function applyFixed() {
+      const sel = CATS.filter(c => store.cats.includes(c.id));
+      ['voice', 'mood'].forEach(g => {
+        const vals = [...new Set(sel.map(c => c[g]))];
+        fx[g] = vals.length === 1 ? vals[0] : null;
+        $('fs-' + g).hidden = !!fx[g];
+      });
+      $('vm').hidden = !!(fx.voice && fx.mood);
+      $('vm').classList.toggle('solo', !!(fx.voice || fx.mood));
+      $('psum').textContent = sel.length === CATS.length ? 'Todo al azar'
+        : VOICES.map(v => [v, sel.filter(c => c.voice === v.id).map(c => MOOD_ES[c.mood])]).filter(x => x[1].length)
+            .map(([v, m]) => `${v.es}: ${m.join(', ')}`).join(' · ');
+    }
+    const phone = () => window.matchMedia('(max-width: 640px)').matches;
+    $('practice').open = !phone();
+    const val = g => fx[g] || picked(g);
+    const complete = () => GROUPS.every(val);
+    macrons.checked = store.macrons;
+    chips.forEach(c => (c.checked = store.cats.includes(c.value)));
+
+    function renderStats() {
+      const pct = store.total ? Math.round(100 * store.ok / store.total) : 0;
+      $('stats').innerHTML = `
+        <span>Aciertos <b>${store.ok}</b> de <b>${store.total}</b>${store.total ? ` (${pct} %)` : ''}</span>
+        <span>Racha <b>${store.streak}</b></span>
+        <span>Mejor racha <b>${store.best}</b></span>
+        ${store.total ? '<button class="link" type="button" id="reset">Reiniciar</button>' : ''}`;
+      const r = $('reset');
+      if (r) r.onclick = () => { Object.assign(store, { ok: 0, total: 0, streak: 0, best: 0 }); save(store); renderStats(); };
+    }
+
+    function renderCard() {
+      const v = st.verb, shown = show(st.entry.form);
+      $('num').textContent = toRoman(st.n);
+      $('form').textContent = shown;
+      $('form').classList.toggle('long', shown.length > 14);
+      $('entry').innerHTML = `
+        <dt>Inf. presente</dt><dd lang="la">${esc(v.inf)}${v.conj === 'irr' ? ` <span class="first">(${esc(v.pres1)})</span>` : ''}</dd>
+        <dt>Inf. perfecto</dt><dd lang="la">${esc(perfInf(v))}</dd>
+        <dt>Supino</dt><dd lang="la">${v.sup ? esc(v.sup) : '—'}</dd>`;
+      $('gloss').innerHTML = `${esc(v.es)} <span>· ${CONJ_ES[v.conj]}</span>`;
+    }
+
+    /* Elige conjunto (voz + modo), luego un verbo que lo admita, luego tiempo y forma. */
+    function draw() {
+      for (;;) {
+        const catId = store.cats[rnd(store.cats.length)];
+        const cat = CATS.find(c => c.id === catId);
+        const v = VERBS[rnd(VERBS.length)];
+        if (v === st.verb) continue;
+        const table = conjugate(v);
+        const inCat = table.filter(e => e.voice === cat.voice && e.mood === cat.mood);
+        if (!inCat.length) continue;
+        const tenses = [...new Set(inCat.map(e => e.tense))];
+        const tense = tenses[rnd(tenses.length)];
+        const pool = inCat.filter(e => e.tense === tense);
+        return { verb: v, table, entry: pool[rnd(pool.length)] };
+      }
+    }
+
+    function next() {
+      if (st.checked && phone()) window.scrollTo(0, 0);
+      Object.assign(st, draw(), { checked: false, n: st.n + 1 });
+      radios.forEach(r => { r.checked = false; r.disabled = false; });
+      form.querySelectorAll('.opt').forEach(o => o.classList.remove('right', 'wrong'));
+      result.hidden = true; result.innerHTML = '';
+      go.textContent = 'Comprobar'; go.disabled = true;
+      renderCard();
+    }
+
+    function check() {
+      if (!complete()) return;
+      const ans = { voice: val('voice'), mood: val('mood'), tense: picked('tense'), person: +picked('person'), num: picked('num') };
+      const shown = show(st.entry.form);
+      const all = st.table.filter(e => show(e.form) === shown);     /* todos los análisis válidos de esa grafía */
+      const hit = all.find(e => sameSlot(e, ans));
+      const ref = hit || st.entry;
+
+      GROUPS.forEach(g => form.querySelectorAll(`input[name=${g}]`).forEach(r => {
+        const o = r.closest('.opt');
+        if (r.value === String(ref[g])) o.classList.add('right');
+        else if (r.checked) o.classList.add('wrong');
+      }));
+      radios.forEach(r => (r.disabled = true));
+
+      store.total++;
+      if (hit) { store.ok++; store.streak++; store.best = Math.max(store.best, store.streak); } else store.streak = 0;
+      save(store); renderStats();
+
+      const others = all.filter(e => !sameSlot(e, ref)).map(describe);
+      const par = st.table.filter(e => e.voice === ref.voice && e.mood === ref.mood && e.tense === ref.tense);
+      const col = num => `<ol lang="la">${par.filter(e => e.num === num).map(e =>
+        `<li${sameSlot(e, ref) ? ' class="hit"' : ''}><i>${e.person}.ª</i>${esc(show(e.form))}</li>`).join('')}</ol>`;
+      result.innerHTML = `
+        <div>
+          <p class="verdict ${hit ? 'ok' : 'bad'}">${hit ? 'Correcto' : 'No es correcto'}</p>
+          <p><span class="lat" lang="la">${esc(shown)}</span> es la ${describe(ref)}.</p>
+          ${others.length ? `<p class="also">Esta forma se escribe igual en otros casos, que también se aceptan: ${others.join('; ')}.</p>` : ''}
+        </div>
+        <div class="paradigm">
+          <p class="label">${TENSE[ref.tense].es} de ${MOOD_ES[ref.mood]}, ${VOICE_ES[ref.voice]}</p>
+          <div class="cols">${col('sg')}${col('pl')}</div>
+        </div>`;
+      result.hidden = false;
+      st.checked = true;
+      go.textContent = 'Siguiente verbo';
+      go.focus({ preventScroll: true });
+      result.scrollIntoView({ block: phone() ? 'start' : 'nearest', behavior: 'smooth' });
+    }
+
+    form.addEventListener('change', e => { if (e.target.type === 'radio' && !st.checked) go.disabled = !complete(); });
+    form.addEventListener('submit', e => { e.preventDefault(); st.checked ? next() : check(); });
+    macrons.addEventListener('change', () => {
+      store.macrons = macrons.checked; save(store);
+      if (st.checked) next(); else renderCard();
+    });
+
+    function setCats() {
+      store.cats = chips.filter(c => c.checked).map(c => c.value); save(store);
+      applyFixed();
+      st.n--; next();                                  /* carta nueva sin avanzar la numeración */
+    }
+    chips.forEach(c => c.addEventListener('change', () => {
+      if (!chips.some(x => x.checked)) { c.checked = true; return; }   /* siempre queda al menos uno */
+      setCats();
+    }));
+    $('all').addEventListener('click', () => { chips.forEach(c => (c.checked = true)); setCats(); });
+
+    keyHandler = e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'enter') {
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+        e.preventDefault();
+        if (!go.disabled) form.requestSubmit();
+        return;
+      }
+      if (st.checked || !Object.prototype.hasOwnProperty.call(KEYS, k)) return;
+      const r = $(KEYS[k]);
+      if (fx[r.name]) return;
+      r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    applyFixed();
+    renderStats();
+    next();
+  }
+})();
+</script>
+<script>
+if ('serviceWorker' in navigator) window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+</script>
+</body>
+</html>
