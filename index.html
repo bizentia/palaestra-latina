@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Práctica de conjugación verbal en latín clásico.">
+<meta name="description" content="Práctica de conjugación verbal y declinación nominal en latín clásico.">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Palaestra">
@@ -117,6 +117,7 @@ body { background: var(--bg); color: var(--ink); font-family: var(--ui); font-si
 .gloss span { font-style: normal; color: var(--muted); }
 
 /* Respuesta */
+.stage.solo { grid-template-columns: minmax(0, 1fr); }
 .answer { display: flex; flex-direction: column; gap: 16px; }
 fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 legend { padding: 0; margin-bottom: 8px; }
@@ -164,6 +165,9 @@ legend { padding: 0; margin-bottom: 8px; }
 .paradigm li i { font: 400 .8rem var(--ui); color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
 .paradigm li.hit { background: var(--ok-soft); color: var(--ok); font-weight: 700; }
 .paradigm li.hit i { color: inherit; }
+.paradigm h3 { font: 700 .78rem var(--ui); text-transform: uppercase; letter-spacing: .1em; color: var(--muted); margin: 0 0 3px; }
+.paradigm .none { color: var(--muted); font-style: italic; margin: 0; }
+.paradigm.cases li i { display: inline-block; min-width: 2.9em; }
 
 /* Teléfono: todo en una columna compacta y el botón principal fijo al borde inferior. */
 @media (max-width: 640px) {
@@ -190,7 +194,7 @@ legend { padding: 0; margin-bottom: 8px; }
   .answer { gap: 10px; }
   legend { margin-bottom: 5px; }
   .opts { gap: 6px; }
-  .opts.tense { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); grid-auto-flow: column; }
+  .opts.tense, .opts.six { grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(3, auto); grid-auto-flow: column; }
   .opt span { padding: 6px 8px; justify-content: center; text-align: center; }
   .pair.rev { grid-template-columns: minmax(0, 1fr); gap: 10px; }
   .pair { gap: 10px; }
@@ -668,6 +672,627 @@ function conjugate(v) {
 const sameSlot = (a, b) => a.voice === b.voice && a.mood === b.mood && a.tense === b.tense && a.person === b.person && a.num === b.num;
 const describe = e => `${e.person}.ª persona del ${NUM_ES[e.num]} del ${TENSE[e.tense].es.toLowerCase()} de ${MOOD_ES[e.mood]}, voz ${VOICE_ES[e.voice]}`;
 
+/* ============================================================
+   Motor de declinación
+   Cada forma es { gender, gcase, num, form }.
+   ============================================================ */
+const CASES = [
+  { id: 'nom', es: 'Nominativo', ab: 'nom.' },
+  { id: 'gen', es: 'Genitivo',   ab: 'gen.' },
+  { id: 'dat', es: 'Dativo',     ab: 'dat.' },
+  { id: 'acc', es: 'Acusativo',  ab: 'acus.' },
+  { id: 'abl', es: 'Ablativo',   ab: 'abl.' },
+  { id: 'voc', es: 'Vocativo',   ab: 'voc.' },
+];
+const CASE_ES = Object.fromEntries(CASES.map(c => [c.id, c.es.toLowerCase()]));
+const CASE_AB = Object.fromEntries(CASES.map(c => [c.id, c.ab]));
+const GENDERS = [{ id: 'm', es: 'Masculino', ab: 'Masc.' }, { id: 'f', es: 'Femenino', ab: 'Fem.' }, { id: 'n', es: 'Neutro', ab: 'Neut.' }];
+const GENDER_ES = { m: 'masculino', f: 'femenino', n: 'neutro' };
+const DECLS = [
+  { id: '1', es: '1.ª', largo: '1.ª declinación' },
+  { id: '2', es: '2.ª', largo: '2.ª declinación' },
+  { id: '3', es: '3.ª', largo: '3.ª declinación' },
+  { id: '4', es: '4.ª', largo: '4.ª declinación' },
+  { id: '5', es: '5.ª', largo: '5.ª declinación' },
+];
+const DECL_ES = Object.fromEntries(DECLS.map(d => [d.id, d.largo]));
+
+/* Desinencias en el orden de CASES: nom, gen, dat, acc, abl, voc.
+   null = la forma no se obtiene por sufijo (se toma del nominativo guardado o se calcula aparte). */
+const ENDINGS = {
+  '1':   { sg: ['a', 'ae', 'ae', 'am', 'ā', 'a'],        pl: ['ae', 'ārum', 'īs', 'ās', 'īs', 'ae'] },
+  '2':   { sg: [null, 'ī', 'ō', 'um', 'ō', 'e'],         pl: ['ī', 'ōrum', 'īs', 'ōs', 'īs', 'ī'] },
+  '2n':  { sg: [null, 'ī', 'ō', null, 'ō', null],        pl: ['a', 'ōrum', 'īs', 'a', 'īs', 'a'] },
+  '3':   { sg: [null, 'is', 'ī', 'em', 'e', null],       pl: ['ēs', 'um', 'ibus', 'ēs', 'ibus', 'ēs'] },
+  '3i':  { sg: [null, 'is', 'ī', 'em', 'e', null],       pl: ['ēs', 'ium', 'ibus', 'ēs', 'ibus', 'ēs'] },
+  '3n':  { sg: [null, 'is', 'ī', null, 'e', null],       pl: ['a', 'um', 'ibus', 'a', 'ibus', 'a'] },
+  '3in': { sg: [null, 'is', 'ī', null, 'ī', null],       pl: ['ia', 'ium', 'ibus', 'ia', 'ibus', 'ia'] },
+  '4':   { sg: ['us', 'ūs', 'uī', 'um', 'ū', 'us'],      pl: ['ūs', 'uum', 'ibus', 'ūs', 'ibus', 'ūs'] },
+  '4n':  { sg: ['ū', 'ūs', 'ū', 'ū', 'ū', 'ū'],          pl: ['ua', 'uum', 'ibus', 'ua', 'ibus', 'ua'] },
+  '5':   { sg: ['ēs', null, null, 'em', 'ē', 'ēs'],      pl: ['ēs', 'ērum', 'ēbus', 'ēs', 'ēbus', 'ēs'] },
+};
+/* Letras que ocupa el genitivo de plural, para deducir el tema de los nombres que solo tienen plural. */
+const PL_GEN_LEN = { '1': 4, '2': 4, '3': 2, '3i': 3, '4': 3, '5': 4 };
+
+/* nominativo | genitivo | declinación | género | significado */
+const NOUN_DATA = `
+aqua|aquae|1|f|agua
+amīcitia|amīcitiae|1|f|amistad
+ancilla|ancillae|1|f|criada, esclava
+anima|animae|1|f|alma, aliento
+aquila|aquilae|1|f|águila
+āra|ārae|1|f|altar
+audācia|audāciae|1|f|audacia, atrevimiento
+aura|aurae|1|f|brisa, aire
+avāritia|avāritiae|1|f|avaricia
+bēstia|bēstiae|1|f|fiera, animal
+causa|causae|1|f|causa, motivo
+cēna|cēnae|1|f|cena
+clēmentia|clēmentiae|1|f|clemencia
+concordia|concordiae|1|f|concordia
+cōpia|cōpiae|1|f|abundancia
+corōna|corōnae|1|f|corona
+culpa|culpae|1|f|culpa, falta
+cūra|cūrae|1|f|cuidado, preocupación
+custōdia|custōdiae|1|f|custodia, guardia
+dea|deae|1|f|diosa
+dīligentia|dīligentiae|1|f|diligencia
+disciplīna|disciplīnae|1|f|disciplina, enseñanza
+doctrīna|doctrīnae|1|f|doctrina, enseñanza
+domina|dominae|1|f|señora, dueña
+ēloquentia|ēloquentiae|1|f|elocuencia
+epistula|epistulae|1|f|carta
+fābula|fābulae|1|f|fábula, relato
+fāma|fāmae|1|f|fama, rumor
+familia|familiae|1|f|familia
+fēmina|fēminae|1|f|mujer
+fera|ferae|1|f|fiera
+fīlia|fīliae|1|f|hija
+flamma|flammae|1|f|llama
+fōrma|fōrmae|1|f|forma, belleza
+fortūna|fortūnae|1|f|fortuna, suerte
+fossa|fossae|1|f|foso, zanja
+fuga|fugae|1|f|huida, fuga
+glōria|glōriae|1|f|gloria
+grātia|grātiae|1|f|gracia, favor
+hasta|hastae|1|f|lanza
+herba|herbae|1|f|hierba
+hōra|hōrae|1|f|hora
+iniūria|iniūriae|1|f|injuria, agravio
+inopia|inopiae|1|f|escasez, pobreza
+īnsula|īnsulae|1|f|isla
+invidia|invidiae|1|f|envidia, odio
+īra|īrae|1|f|ira, cólera
+iūstitia|iūstitiae|1|f|justicia
+lacrima|lacrimae|1|f|lágrima
+laetitia|laetitiae|1|f|alegría
+licentia|licentiae|1|f|licencia, libertad
+lingua|linguae|1|f|lengua, idioma
+littera|litterae|1|f|letra
+lūna|lūnae|1|f|luna
+māteria|māteriae|1|f|materia, madera
+memoria|memoriae|1|f|memoria, recuerdo
+mēnsa|mēnsae|1|f|mesa
+mora|morae|1|f|demora, tardanza
+nātūra|nātūrae|1|f|naturaleza
+opera|operae|1|f|trabajo, esfuerzo
+ōra|ōrae|1|f|costa, orilla
+patientia|patientiae|1|f|paciencia
+patria|patriae|1|f|patria
+pecūnia|pecūniae|1|f|dinero
+penna|pennae|1|f|pluma, ala
+persōna|persōnae|1|f|persona, máscara
+philosophia|philosophiae|1|f|filosofía
+poena|poenae|1|f|castigo, pena
+porta|portae|1|f|puerta
+potentia|potentiae|1|f|poder, fuerza
+praeda|praedae|1|f|botín, presa
+prōvincia|prōvinciae|1|f|provincia
+prūdentia|prūdentiae|1|f|prudencia
+puella|puellae|1|f|niña, muchacha
+pugna|pugnae|1|f|lucha, combate
+rēgīna|rēgīnae|1|f|reina
+rīpa|rīpae|1|f|orilla, ribera
+rosa|rosae|1|f|rosa
+sagitta|sagittae|1|f|flecha
+sapientia|sapientiae|1|f|sabiduría
+scientia|scientiae|1|f|ciencia, conocimiento
+sella|sellae|1|f|silla, asiento
+sententia|sententiae|1|f|opinión, sentencia
+serva|servae|1|f|esclava
+silva|silvae|1|f|bosque, selva
+stella|stellae|1|f|estrella
+superbia|superbiae|1|f|soberbia
+taberna|tabernae|1|f|tienda, taberna
+tabula|tabulae|1|f|tabla, cuadro
+terra|terrae|1|f|tierra
+tunica|tunicae|1|f|túnica
+turba|turbae|1|f|multitud, tumulto
+umbra|umbrae|1|f|sombra
+unda|undae|1|f|ola, onda
+via|viae|1|f|camino, vía
+victōria|victōriae|1|f|victoria
+vigilia|vigiliae|1|f|vigilia, guardia nocturna
+vīlla|vīllae|1|f|casa de campo, villa
+vīta|vītae|1|f|vida
+agricola|agricolae|1|m|labrador, campesino
+collēga|collēgae|1|m|colega, compañero
+incola|incolae|1|m|habitante
+nauta|nautae|1|m|marinero
+pīrāta|pīrātae|1|m|pirata
+poēta|poētae|1|m|poeta
+scrība|scrībae|1|m|escribano
+ager|agrī|2|m|campo
+amīcus|amīcī|2|m|amigo
+animus|animī|2|m|ánimo, espíritu
+annus|annī|2|m|año
+avus|avī|2|m|abuelo
+barbarus|barbarī|2|m|bárbaro, extranjero
+campus|campī|2|m|llanura, campo
+captīvus|captīvī|2|m|cautivo, prisionero
+cibus|cibī|2|m|alimento, comida
+digitus|digitī|2|m|dedo
+discipulus|discipulī|2|m|discípulo, alumno
+dolus|dolī|2|m|engaño, astucia
+dominus|dominī|2|m|señor, dueño
+equus|equī|2|m|caballo
+fīlius|fīliī|2|m|hijo
+fluvius|fluviī|2|m|río
+focus|focī|2|m|hogar, fuego
+fūmus|fūmī|2|m|humo
+gladius|gladiī|2|m|espada
+hortus|hortī|2|m|jardín, huerto
+inimīcus|inimīcī|2|m|enemigo personal
+iocus|iocī|2|m|broma, juego
+lectus|lectī|2|m|lecho, cama
+lēgātus|lēgātī|2|m|legado, embajador
+liber|librī|2|m|libro
+locus|locī|2|m|lugar
+lūdus|lūdī|2|m|juego, escuela
+lupus|lupī|2|m|lobo
+magister|magistrī|2|m|maestro
+marītus|marītī|2|m|marido
+medicus|medicī|2|m|médico
+minister|ministrī|2|m|servidor, ayudante
+modus|modī|2|m|modo, medida
+morbus|morbī|2|m|enfermedad
+mundus|mundī|2|m|mundo
+mūrus|mūrī|2|m|muro, muralla
+numerus|numerī|2|m|número
+nummus|nummī|2|m|moneda
+nūntius|nūntiī|2|m|mensajero, noticia
+oculus|oculī|2|m|ojo
+philosophus|philosophī|2|m|filósofo
+populus|populī|2|m|pueblo
+puer|puerī|2|m|niño, muchacho
+rāmus|rāmī|2|m|rama
+rīvus|rīvī|2|m|arroyo
+servus|servī|2|m|esclavo, siervo
+socius|sociī|2|m|aliado, compañero
+somnus|somnī|2|m|sueño
+taurus|taurī|2|m|toro
+tribūnus|tribūnī|2|m|tribuno
+tyrannus|tyrannī|2|m|tirano
+umerus|umerī|2|m|hombro
+ventus|ventī|2|m|viento
+vīcus|vīcī|2|m|aldea, barrio
+vir|virī|2|m|varón, hombre
+humus|humī|2|f|suelo, tierra
+aedificium|aedificiī|2|n|edificio
+argentum|argentī|2|n|plata
+aurum|aurī|2|n|oro
+auxilium|auxiliī|2|n|ayuda, auxilio
+bellum|bellī|2|n|guerra
+beneficium|beneficiī|2|n|beneficio, favor
+bracchium|bracchiī|2|n|brazo
+caelum|caelī|2|n|cielo
+collum|collī|2|n|cuello
+cōnsilium|cōnsiliī|2|n|consejo, plan
+convīvium|convīviī|2|n|banquete
+dēsīderium|dēsīderiī|2|n|deseo, añoranza
+dictum|dictī|2|n|dicho, palabra
+dōnum|dōnī|2|n|regalo, don
+exemplum|exemplī|2|n|ejemplo
+exitium|exitiī|2|n|ruina, destrucción
+factum|factī|2|n|hecho
+fātum|fātī|2|n|destino, hado
+ferrum|ferrī|2|n|hierro
+folium|foliī|2|n|hoja
+forum|forī|2|n|foro, plaza
+frūmentum|frūmentī|2|n|trigo, grano
+gaudium|gaudiī|2|n|gozo, alegría
+imperium|imperiī|2|n|mando, imperio
+incendium|incendiī|2|n|incendio
+ingenium|ingeniī|2|n|talento, carácter
+initium|initiī|2|n|comienzo
+iūdicium|iūdiciī|2|n|juicio, tribunal
+iugum|iugī|2|n|yugo
+lignum|lignī|2|n|leña, madera
+membrum|membrī|2|n|miembro
+monumentum|monumentī|2|n|monumento, recuerdo
+negōtium|negōtiī|2|n|ocupación, negocio
+odium|odiī|2|n|odio
+officium|officiī|2|n|deber, servicio
+oppidum|oppidī|2|n|plaza fuerte, ciudad
+ōrnāmentum|ōrnāmentī|2|n|adorno
+ōtium|ōtiī|2|n|ocio, descanso
+ōvum|ōvī|2|n|huevo
+perīculum|perīculī|2|n|peligro
+pīlum|pīlī|2|n|jabalina
+pōculum|pōculī|2|n|copa, vaso
+praemium|praemiī|2|n|premio, recompensa
+praesidium|praesidiī|2|n|guarnición, protección
+pretium|pretiī|2|n|precio, valor
+prīncipium|prīncipiī|2|n|principio, comienzo
+proelium|proeliī|2|n|combate, batalla
+rēgnum|rēgnī|2|n|reino, poder real
+remedium|remediī|2|n|remedio
+sacrificium|sacrificiī|2|n|sacrificio
+saeculum|saeculī|2|n|siglo, generación
+saxum|saxī|2|n|roca, piedra
+scūtum|scūtī|2|n|escudo
+sepulcrum|sepulcrī|2|n|sepulcro
+signum|signī|2|n|señal, estandarte
+silentium|silentiī|2|n|silencio
+solum|solī|2|n|suelo
+spatium|spatiī|2|n|espacio, intervalo
+stipendium|stipendiī|2|n|paga, tributo
+studium|studiī|2|n|afición, estudio
+supplicium|suppliciī|2|n|suplicio, castigo
+tēlum|tēlī|2|n|dardo, arma arrojadiza
+templum|templī|2|n|templo
+tergum|tergī|2|n|espalda, dorso
+testāmentum|testāmentī|2|n|testamento
+vallum|vallī|2|n|empalizada, trinchera
+venēnum|venēnī|2|n|veneno
+verbum|verbī|2|n|palabra, verbo
+vestīgium|vestīgiī|2|n|huella, vestigio
+vīnum|vīnī|2|n|vino
+vitium|vitiī|2|n|vicio, defecto
+vulgus|vulgī|2|n|vulgo, gente común
+aetās|aetātis|3|f|edad, época
+amor|amōris|3|m|amor
+aequor|aequoris|3|n|llanura, mar
+arbor|arboris|3|f|árbol
+auctor|auctōris|3|m|autor, promotor
+auctōritās|auctōritātis|3|f|autoridad, prestigio
+calamitās|calamitātis|3|f|desgracia, desastre
+calor|calōris|3|m|calor
+canis|canis|3|m|perro
+carcer|carceris|3|m|cárcel
+carō|carnis|3|f|carne
+celeritās|celeritātis|3|f|rapidez
+cīvitās|cīvitātis|3|f|ciudadanía, ciudad
+clāmor|clāmōris|3|m|grito, clamor
+cōgitātiō|cōgitātiōnis|3|f|pensamiento
+color|colōris|3|m|color
+comes|comitis|3|m|compañero
+condiciō|condiciōnis|3|f|condición, pacto
+cōnsuētūdō|cōnsuētūdinis|3|f|costumbre, hábito
+cōnsul|cōnsulis|3|m|cónsul
+contentiō|contentiōnis|3|f|esfuerzo, disputa
+cupiditās|cupiditātis|3|f|deseo, codicia
+custōs|custōdis|3|m|guardián
+difficultās|difficultātis|3|f|dificultad
+dignitās|dignitātis|3|f|dignidad, prestigio
+dolor|dolōris|3|m|dolor
+dux|ducis|3|m|jefe, general
+eques|equitis|3|m|jinete, caballero
+error|errōris|3|m|error, extravío
+facultās|facultātis|3|f|facultad, posibilidad
+flōs|flōris|3|m|flor
+fortitūdō|fortitūdinis|3|f|valor, fortaleza
+frāter|frātris|3|m|hermano
+fūr|fūris|3|m|ladrón
+furor|furōris|3|m|furor, locura
+grex|gregis|3|m|rebaño, grupo
+hērēs|hērēdis|3|m|heredero
+hiems|hiemis|3|f|invierno
+homō|hominis|3|m|hombre, ser humano
+honor|honōris|3|m|honor, cargo
+hospes|hospitis|3|m|huésped, anfitrión
+imāgō|imāginis|3|f|imagen, retrato
+imperātor|imperātōris|3|m|general, emperador
+iūdex|iūdicis|3|m|juez
+iuventūs|iuventūtis|3|f|juventud
+iuvenis|iuvenis|3|m|joven
+labor|labōris|3|m|trabajo, fatiga
+lapis|lapidis|3|m|piedra
+latrō|latrōnis|3|m|bandido, salteador
+laus|laudis|3|f|alabanza, mérito
+legiō|legiōnis|3|f|legión
+lēx|lēgis|3|f|ley
+libīdō|libīdinis|3|f|deseo, pasión
+lībertās|lībertātis|3|f|libertad
+lūx|lūcis|3|f|luz
+magnitūdō|magnitūdinis|3|f|tamaño, magnitud
+māter|mātris|3|f|madre
+mercēs|mercēdis|3|f|paga, recompensa
+mīles|mīlitis|3|m|soldado
+mōs|mōris|3|m|costumbre
+mulier|mulieris|3|f|mujer
+multitūdō|multitūdinis|3|f|multitud
+nātiō|nātiōnis|3|f|nación, pueblo
+necessitās|necessitātis|3|f|necesidad
+nepōs|nepōtis|3|m|nieto
+obses|obsidis|3|m|rehén
+obsidiō|obsidiōnis|3|f|asedio
+odor|odōris|3|m|olor
+opīniō|opīniōnis|3|f|opinión, creencia
+ōrātiō|ōrātiōnis|3|f|discurso, oración
+ōrātor|ōrātōris|3|m|orador
+ōrdō|ōrdinis|3|m|orden, fila, clase
+orīgō|orīginis|3|f|origen
+pāx|pācis|3|f|paz
+pastor|pastōris|3|m|pastor
+pater|patris|3|m|padre
+pedes|peditis|3|m|soldado de a pie
+pēs|pedis|3|m|pie
+pietās|pietātis|3|f|piedad, deber religioso
+potestās|potestātis|3|f|poder, potestad
+praetor|praetōris|3|m|pretor
+prīnceps|prīncipis|3|m|príncipe, jefe
+pudor|pudōris|3|m|pudor, vergüenza
+quiēs|quiētis|3|f|descanso, quietud
+rādīx|rādīcis|3|f|raíz
+ratiō|ratiōnis|3|f|razón, cálculo
+regiō|regiōnis|3|f|región, comarca
+religiō|religiōnis|3|f|religión, escrúpulo
+rēx|rēgis|3|m|rey
+rūmor|rūmōris|3|m|rumor
+sacerdōs|sacerdōtis|3|m|sacerdote
+salūs|salūtis|3|f|salud, salvación
+sanguis|sanguinis|3|m|sangre
+sēdēs|sēdis|3|f|asiento, sede
+sēditiō|sēditiōnis|3|f|sedición, motín
+senātor|senātōris|3|m|senador
+senectūs|senectūtis|3|f|vejez
+senex|senis|3|m|anciano
+sermō|sermōnis|3|m|conversación, lenguaje
+servitūs|servitūtis|3|f|esclavitud
+societās|societātis|3|f|alianza, sociedad
+sōl|sōlis|3|m|sol
+sōlitūdō|sōlitūdinis|3|f|soledad
+soror|sorōris|3|f|hermana
+suspīciō|suspīciōnis|3|f|sospecha
+tempestās|tempestātis|3|f|tempestad, tiempo
+terror|terrōris|3|m|terror, espanto
+timor|timōris|3|m|temor, miedo
+ūtilitās|ūtilitātis|3|f|utilidad, provecho
+uxor|uxōris|3|f|esposa
+vēritās|vēritātis|3|f|verdad
+victor|victōris|3|m|vencedor
+virgō|virginis|3|f|doncella, virgen
+virtūs|virtūtis|3|f|virtud, valor
+voluntās|voluntātis|3|f|voluntad
+voluptās|voluptātis|3|f|placer
+vōx|vōcis|3|f|voz, palabra
+fraus|fraudis|3|f|fraude, engaño
+nix|nivis|3|f|nieve
+agmen|agminis|3|n|columna en marcha, ejército
+caput|capitis|3|n|cabeza
+carmen|carminis|3|n|canto, poema
+certāmen|certāminis|3|n|certamen, lucha
+cor|cordis|3|n|corazón
+corpus|corporis|3|n|cuerpo
+crīmen|crīminis|3|n|acusación, delito
+decus|decoris|3|n|honor, gloria
+discrīmen|discrīminis|3|n|distinción, momento crítico
+flūmen|flūminis|3|n|río
+foedus|foederis|3|n|tratado, alianza
+frīgus|frīgoris|3|n|frío
+fulmen|fulminis|3|n|rayo
+fūnus|fūneris|3|n|funeral, muerte
+genus|generis|3|n|género, linaje
+iter|itineris|3|n|camino, viaje
+iūs|iūris|3|n|derecho, justicia
+latus|lateris|3|n|costado, flanco
+līmen|līminis|3|n|umbral
+lītus|lītoris|3|n|costa, playa
+lūmen|lūminis|3|n|luz, lumbre
+mūnus|mūneris|3|n|cargo, don, espectáculo
+nōmen|nōminis|3|n|nombre
+nūmen|nūminis|3|n|divinidad, voluntad divina
+ōmen|ōminis|3|n|presagio, augurio
+onus|oneris|3|n|carga, peso
+opus|operis|3|n|obra, trabajo
+ōs|ōris|3|n|boca, rostro
+os|ossis|3|n|hueso
+pectus|pectoris|3|n|pecho
+pecus|pecoris|3|n|ganado
+pondus|ponderis|3|n|peso
+rōbur|rōboris|3|n|fuerza, roble
+scelus|sceleris|3|n|crimen, maldad
+sēmen|sēminis|3|n|semilla
+sīdus|sīderis|3|n|astro, constelación
+tempus|temporis|3|n|tiempo
+vulnus|vulneris|3|n|herida
+adulēscēns|adulēscentis|3i|m|joven, adolescente
+aedēs|aedis|3i|f|templo, (plural) casa
+ars|artis|3i|f|arte, técnica
+arx|arcis|3i|f|ciudadela, fortaleza
+auris|auris|3i|f|oreja, oído
+avis|avis|3i|f|ave, pájaro
+caedēs|caedis|3i|f|matanza, asesinato
+cīvis|cīvis|3i|m|ciudadano
+clādēs|clādis|3i|f|desastre, derrota
+classis|classis|3i|f|flota, clase
+cliēns|clientis|3i|m|cliente, protegido
+cohors|cohortis|3i|f|cohorte
+collis|collis|3i|m|colina
+dēns|dentis|3i|m|diente
+fīnis|fīnis|3i|m|fin, límite
+fōns|fontis|3i|m|fuente, manantial
+frōns|frontis|3i|f|frente
+gēns|gentis|3i|f|pueblo, linaje
+hostis|hostis|3i|m|enemigo
+ignis|ignis|3i|m|fuego
+imber|imbris|3i|m|lluvia, aguacero
+īnfāns|īnfantis|3i|m|niño pequeño
+mēns|mentis|3i|f|mente, pensamiento
+mēnsis|mēnsis|3i|m|mes
+mōns|montis|3i|m|monte
+mors|mortis|3i|f|muerte
+nāvis|nāvis|3i|f|nave, barco
+nox|noctis|3i|f|noche
+nūbēs|nūbis|3i|f|nube
+orbis|orbis|3i|m|círculo, orbe
+ovis|ovis|3i|f|oveja
+parēns|parentis|3|m|progenitor, padre o madre
+pars|partis|3i|f|parte
+pestis|pestis|3i|f|peste, ruina
+plēbs|plēbis|3i|f|plebe
+pōns|pontis|3i|m|puente
+serpēns|serpentis|3i|f|serpiente
+sors|sortis|3i|f|suerte, sorteo
+testis|testis|3i|m|testigo
+turris|turris|3i|f|torre
+urbs|urbis|3i|f|ciudad
+vallis|vallis|3i|f|valle
+venter|ventris|3i|m|vientre
+vestis|vestis|3i|f|vestido, ropa
+animal|animālis|3i|n|animal
+exemplar|exemplāris|3i|n|modelo, ejemplar
+mare|maris|3i|n|mar
+tribūnal|tribūnālis|3i|n|tribunal
+vectīgal|vectīgālis|3i|n|impuesto, tributo
+adventus|adventūs|4|m|llegada
+arcus|arcūs|4|m|arco
+cantus|cantūs|4|m|canto
+cāsus|cāsūs|4|m|caso, caída, desgracia
+cōnspectus|cōnspectūs|4|m|vista, presencia
+currus|currūs|4|m|carro
+cursus|cursūs|4|m|carrera, curso
+exercitus|exercitūs|4|m|ejército
+exitus|exitūs|4|m|salida, final
+flūctus|flūctūs|4|m|ola, oleaje
+frūctus|frūctūs|4|m|fruto, provecho
+gradus|gradūs|4|m|paso, grado
+ictus|ictūs|4|m|golpe
+impetus|impetūs|4|m|ataque, ímpetu
+lacus|lacūs|4|m|lago
+luctus|luctūs|4|m|luto, duelo
+magistrātus|magistrātūs|4|m|magistratura, magistrado
+metus|metūs|4|m|miedo
+mōtus|mōtūs|4|m|movimiento
+occāsus|occāsūs|4|m|ocaso, puesta
+passus|passūs|4|m|paso
+portus|portūs|4|m|puerto
+reditus|reditūs|4|m|regreso
+rīsus|rīsūs|4|m|risa
+senātus|senātūs|4|m|senado
+sēnsus|sēnsūs|4|m|sentido, sentimiento
+spīritus|spīritūs|4|m|espíritu, aliento
+status|statūs|4|m|estado, situación
+sūmptus|sūmptūs|4|m|gasto
+tumultus|tumultūs|4|m|tumulto, alboroto
+ūsus|ūsūs|4|m|uso, práctica
+versus|versūs|4|m|verso, línea
+vultus|vultūs|4|m|rostro, semblante
+manus|manūs|4|f|mano, tropa
+cornū|cornūs|4|n|cuerno, ala del ejército
+genū|genūs|4|n|rodilla
+aciēs|aciēī|5|f|línea de batalla, filo
+diēs|diēī|5|m|día
+faciēs|faciēī|5|f|rostro, aspecto
+fidēs|fideī|5|f|fe, lealtad
+glaciēs|glaciēī|5|f|hielo
+merīdiēs|merīdiēī|5|m|mediodía
+perniciēs|perniciēī|5|f|ruina, perdición
+rēs|reī|5|f|cosa, asunto
+seriēs|seriēī|5|f|serie, sucesión
+speciēs|speciēī|5|f|apariencia, especie
+spēs|speī|5|f|esperanza
+arma|armōrum|2|n|armas
+castra|castrōrum|2|n|campamento
+dīvitiae|dīvitiārum|1|f|riquezas
+īnsidiae|īnsidiārum|1|f|emboscada, asechanzas
+līberī|līberōrum|2|m|hijos
+moenia|moenium|3i|n|murallas
+nūptiae|nūptiārum|1|f|boda
+reliquiae|reliquiārum|1|f|restos, reliquias
+tenebrae|tenebrārum|1|f|tinieblas
+`.trim().split('\n').map(l => {
+  const [nom, gen, decl, g, es] = l.split('|');
+  return { nom, gen, decl, g, es };
+});
+
+/* Solo plural: el enunciado guardado es el nominativo y el genitivo de plural. */
+const PL_ONLY = new Set('arma castra dīvitiae īnsidiae līberī moenia nūptiae reliquiae tenebrae'.split(' '));
+/* Sin plural en uso clásico. */
+const SG_ONLY = new Set(('aurum argentum fidēs iūstitia sanguis humus vulgus plēbs pietās ' +
+  'senectūs iuventūs servitūs frūmentum sapientia superbia').split(' '));
+/* Temas en consonante que, con todo, hacen el genitivo de plural en -ium. */
+const GEN_IUM = new Set('cor os nix fraus carō'.split(' '));
+
+/* Nombres cuya flexión no sigue ningún modelo: se guardan enteros (orden de CASES). */
+const IRREGULAR_NOUNS = [
+  { nom: 'deus', gen: 'deī', decl: '2', g: 'm', es: 'dios',
+    sg: ['deus', 'deī', 'deō', 'deum', 'deō', 'deus'],
+    pl: ['dī', 'deōrum', 'dīs', 'deōs', 'dīs', 'dī'] },
+  { nom: 'domus', gen: 'domūs', decl: '4', g: 'f', es: 'casa, hogar',
+    sg: ['domus', 'domūs', 'domuī', 'domum', 'domō', 'domus'],
+    pl: ['domūs', 'domuum', 'domibus', 'domōs', 'domibus', 'domūs'] },
+  { nom: 'vīs', gen: 'vīs', decl: '3', g: 'f', es: 'fuerza, violencia',
+    sg: ['vīs', 'vīs', 'vī', 'vim', 'vī', 'vīs'],
+    pl: ['vīrēs', 'vīrium', 'vīribus', 'vīrēs', 'vīribus', 'vīrēs'] },
+  { nom: 'bōs', gen: 'bovis', decl: '3', g: 'm', es: 'buey, vaca',
+    sg: ['bōs', 'bovis', 'bovī', 'bovem', 'bove', 'bōs'],
+    pl: ['bovēs', 'boum', 'bōbus', 'bovēs', 'bōbus', 'bovēs'] },
+];
+
+const NOUNS = [...NOUN_DATA, ...IRREGULAR_NOUNS];
+
+/* Clave de la tabla de desinencias: la declinación más el neutro. */
+const endKey = n => (n.g === 'n' && ENDINGS[n.decl + 'n'] ? n.decl + 'n' : n.decl);
+
+/* Tema: se obtiene del genitivo, salvo en 2.ª y 4.ª, donde el nominativo lo da sin ambigüedad
+   (fīlius → fīli-, no fīlī-), y en 5.ª, donde el genitivo varía (reī / diēī). */
+function nounStem(n) {
+  if (PL_ONLY.has(n.nom)) return n.gen.slice(0, -PL_GEN_LEN[n.decl]);
+  if (n.decl === '1') return n.gen.slice(0, -2);
+  if (n.decl === '2') return /(us|um)$/.test(n.nom) ? n.nom.slice(0, -2) : n.gen.slice(0, -1);
+  if (n.decl === '4') return n.nom.endsWith('ū') ? n.nom.slice(0, -1) : n.nom.slice(0, -2);
+  if (n.decl === '5') return n.nom.slice(0, -2);
+  return n.gen.slice(0, -2);
+}
+
+function decline(n) {
+  const out = [];
+  const add = (gcase, num, form) => out.push({ gender: n.g, gcase, num, form });
+  const nums = PL_ONLY.has(n.nom) ? ['pl'] : SG_ONLY.has(n.nom) ? ['sg'] : ['sg', 'pl'];
+  if (n.sg) {                                        /* irregulares: tabla explícita */
+    nums.forEach(num => CASES.forEach((c, i) => add(c.id, num, n[num][i])));
+    return out;
+  }
+  const stem = nounStem(n), end = ENDINGS[endKey(n)], d = n.decl;
+  nums.forEach(num => end[num].forEach((e, i) => {
+    const c = CASES[i].id;
+    let form;
+    if (num === 'sg' && e === null) {
+      if (d === '5') form = stem + (/[aeiouāēīōū]$/.test(stem) ? 'ēī' : 'eī');   /* genitivo y dativo */
+      else form = n.nom;                                                          /* 3.ª: nom., voc. y acus. neutro */
+    } else if (num === 'sg' && c === 'voc' && d === '2' && n.g !== 'n') {
+      form = n.nom.endsWith('ius') ? stem.slice(0, -1) + 'ī'      /* fīlī */
+           : n.nom.endsWith('us') ? stem + e                      /* domine */
+           : n.nom;                                               /* puer, ager, vir */
+    } else if (num === 'pl' && c === 'gen' && GEN_IUM.has(n.nom)) {
+      form = stem + 'ium';
+    } else {
+      form = stem + e;
+    }
+    add(c, num, form);
+  }));
+  return out;
+}
+
+const sameCase = (a, b) => a.gcase === b.gcase && a.num === b.num;
+const describeCase = e => `${CASE_ES[e.gcase]} ${NUM_ES[e.num]}`;
+/* Enunciado de diccionario: puella, -ae · dominus, -ī · rēx, rēgis (en la 3.ª el tema cambia, así que el genitivo va entero). */
+const genTail = n => n.decl[0] === '3' ? n.gen : '-' + n.gen.slice(nounStem(n).length);
+const nounEntry = n => `${n.nom}, ${genTail(n)}`;
+const NOUNS_BY_DECL = Object.fromEntries(DECLS.map(d => [d.id, NOUNS.filter(n => n.decl[0] === d.id)]));
+
 function toRoman(n) {
   const map = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],[50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
   let s = ''; for (const [v, r] of map) while (n >= v) { s += r; n -= v; } return s;
@@ -680,15 +1305,45 @@ if (typeof document !== 'undefined') (function () {
   const KEY = 'palaestra.v1';
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch (e) { return {}; } };
   const save = d => { try { localStorage.setItem(KEY, JSON.stringify(d)); } catch (e) {} };
-  const store = Object.assign({ ok: 0, total: 0, streak: 0, best: 0, macrons: true, cats: CATS.map(c => c.id) }, load());
-  store.cats = (Array.isArray(store.cats) ? store.cats : []).filter(id => CATS.some(c => c.id === id));
-  if (!store.cats.length) store.cats = CATS.map(c => c.id);
+  const store = Object.assign({ ok: 0, total: 0, streak: 0, best: 0, nOk: 0, nTotal: 0, nStreak: 0, nBest: 0,
+    macrons: true, lemma: true, cats: CATS.map(c => c.id), decls: DECLS.map(d => d.id) }, load());
+  const keep = (saved, all) => {
+    const ok = (Array.isArray(saved) ? saved : []).filter(id => all.includes(id));
+    return ok.length ? ok : all;
+  };
+  store.cats = keep(store.cats, CATS.map(c => c.id));
+  store.decls = keep(store.decls, DECLS.map(d => d.id));
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const rnd = n => Math.floor(Math.random() * n);
+  const phone = () => window.matchMedia('(max-width: 640px)').matches;
+  const opt = (name, id, value, text, key, short) =>
+    `<label class="opt"><input type="radio" name="${name}" id="${id}" value="${value}"${short ? ` aria-label="${text}"` : ''}><span>${short ? `<i class="full">${text}</i><i class="short">${short}</i>` : text}<kbd>${key}</kbd></span></label>`;
+
+  /* Marcador: cada ejercicio lleva su propia cuenta dentro del mismo almacén. */
+  function scoreboard(node, k) {
+    const render = () => {
+      const pct = store[k.total] ? Math.round(100 * store[k.ok] / store[k.total]) : 0;
+      node.innerHTML = `
+        <span>Aciertos <b>${store[k.ok]}</b> de <b>${store[k.total]}</b>${store[k.total] ? ` (${pct} %)` : ''}</span>
+        <span>Racha <b>${store[k.streak]}</b></span>
+        <span>Mejor racha <b>${store[k.best]}</b></span>
+        ${store[k.total] ? '<button class="link" type="button">Reiniciar</button>' : ''}`;
+      const r = node.querySelector('button');
+      if (r) r.onclick = () => { Object.values(k).forEach(key => (store[key] = 0)); save(store); render(); };
+    };
+    return { render, hit(ok) {
+      store[k.total]++;
+      if (ok) { store[k.ok]++; store[k.streak]++; store[k.best] = Math.max(store[k.best], store[k.streak]); } else store[k.streak] = 0;
+      save(store); render();
+    } };
+  }
 
   /* Registro de ejercicios: cada nuevo ejercicio se añade aquí. */
   const EXERCISES = [
-    { id: 'conjugacion', nav: 'Conjugación', title: 'Conjugación verbal', sub: 'análisis de formas', mount: mountConjugation },
+    { id: 'conjugacion', nav: 'Conjugación', title: 'Conjugación verbal', sub: 'análisis de formas', mount: mountConjugation,
+      keys: { ok: 'ok', total: 'total', streak: 'streak', best: 'best' } },
+    { id: 'declinacion', nav: 'Declinación', title: 'Declinación nominal', sub: 'análisis de formas', mount: mountNouns,
+      keys: { ok: 'nOk', total: 'nTotal', streak: 'nStreak', best: 'nBest' } },
   ];
 
   const app = document.getElementById('app');
@@ -710,8 +1365,6 @@ if (typeof document !== 'undefined') (function () {
   function mountConjugation(root, ex) {
     const st = { verb: null, entry: null, table: [], checked: false, n: 0 };
     const show = f => (store.macrons ? f : stripMacrons(f));
-    const opt = (name, id, value, text, key, short) =>
-      `<label class="opt"><input type="radio" name="${name}" id="${id}" value="${value}"${short ? ` aria-label="${text}"` : ''}><span>${short ? `<i class="full">${text}</i><i class="short">${short}</i>` : text}<kbd>${key}</kbd></span></label>`;
     const chip = c => `<label class="chip"><input type="checkbox" id="cat-${c.id}" value="${c.id}"><span>${MOODS.find(m => m.id === c.mood).es}</span></label>`;
 
     root.innerHTML = `
@@ -780,6 +1433,7 @@ if (typeof document !== 'undefined') (function () {
 
     const $ = id => root.querySelector('#' + id);
     const form = $('answer'), go = $('go'), result = $('result'), macrons = $('macrons');
+    const score = scoreboard($('stats'), ex.keys);
     const GROUPS = ['voice', 'mood', 'tense', 'person', 'num'];
     const KEYS = { a: 'v-act', z: 'v-pas', i: 'm-ind', j: 'm-subj', m: 'm-imp', q: 'p-1', w: 'p-2', e: 'p-3', s: 'n-sg', p: 'n-pl',
       1: 't-pres', 2: 't-impf', 3: 't-fut', 4: 't-perf', 5: 't-plup', 6: 't-futp' };
@@ -801,23 +1455,11 @@ if (typeof document !== 'undefined') (function () {
         : VOICES.map(v => [v, sel.filter(c => c.voice === v.id).map(c => MOOD_ES[c.mood])]).filter(x => x[1].length)
             .map(([v, m]) => `${v.es}: ${m.join(', ')}`).join(' · ');
     }
-    const phone = () => window.matchMedia('(max-width: 640px)').matches;
     $('practice').open = !phone();
     const val = g => fx[g] || picked(g);
     const complete = () => GROUPS.every(val);
     macrons.checked = store.macrons;
     chips.forEach(c => (c.checked = store.cats.includes(c.value)));
-
-    function renderStats() {
-      const pct = store.total ? Math.round(100 * store.ok / store.total) : 0;
-      $('stats').innerHTML = `
-        <span>Aciertos <b>${store.ok}</b> de <b>${store.total}</b>${store.total ? ` (${pct} %)` : ''}</span>
-        <span>Racha <b>${store.streak}</b></span>
-        <span>Mejor racha <b>${store.best}</b></span>
-        ${store.total ? '<button class="link" type="button" id="reset">Reiniciar</button>' : ''}`;
-      const r = $('reset');
-      if (r) r.onclick = () => { Object.assign(store, { ok: 0, total: 0, streak: 0, best: 0 }); save(store); renderStats(); };
-    }
 
     function renderCard() {
       const v = st.verb, shown = show(st.entry.form);
@@ -873,9 +1515,7 @@ if (typeof document !== 'undefined') (function () {
       }));
       radios.forEach(r => (r.disabled = true));
 
-      store.total++;
-      if (hit) { store.ok++; store.streak++; store.best = Math.max(store.best, store.streak); } else store.streak = 0;
-      save(store); renderStats();
+      score.hit(!!hit);
 
       const others = all.filter(e => !sameSlot(e, ref)).map(describe);
       const par = st.table.filter(e => e.voice === ref.voice && e.mood === ref.mood && e.tense === ref.tense);
@@ -932,7 +1572,206 @@ if (typeof document !== 'undefined') (function () {
     };
 
     applyFixed();
-    renderStats();
+    score.render();
+    next();
+  }
+
+  /* ---------- Ejercicio 2: analizar una forma nominal ---------- */
+  function mountNouns(root, ex) {
+    const st = { noun: null, entry: null, table: [], checked: false, n: 0 };
+    const show = f => (store.macrons ? f : stripMacrons(f));
+    const chip = d => `<label class="chip"><input type="checkbox" id="decl-${d.id}" value="${d.id}"><span>${d.es}</span></label>`;
+
+    root.innerHTML = `
+      <div class="ex" style="display:flex;flex-direction:column;gap:22px">
+        <div class="bar">
+          <h2>${esc(ex.title)} <span>· ${esc(ex.sub)}</span></h2>
+          <div class="stats" id="stats"></div>
+        </div>
+
+        <details class="practice" id="practice">
+          <summary><span class="label">Qué practicar</span><span class="psum" id="psum"></span></summary>
+          <div class="pbody">
+            <div class="sets" id="sets">
+              <div class="set"><b>Declinación</b>${DECLS.map(chip).join('')}</div>
+              <button class="link" type="button" id="all">Todo al azar</button>
+            </div>
+            <label class="check"><input type="checkbox" id="lemma"> Mostrar el enunciado: nominativo y genitivo (puella, -ae)</label>
+            <label class="check"><input type="checkbox" id="macrons"> Mostrar cantidades vocálicas (ā, ē, ī…)</label>
+          </div>
+        </details>
+
+        <section class="stage" id="stage">
+          <div class="slab">
+            <span class="num" id="num"></span>
+            <p class="form" id="form" lang="la"></p>
+          </div>
+          <aside class="entry" id="card" aria-label="Enunciado del sustantivo">
+            <p class="label">Enunciado</p>
+            <dl id="entry"></dl>
+            <p class="gloss" id="gloss"></p>
+          </aside>
+        </section>
+
+        <form class="answer" id="answer" autocomplete="off">
+          <div class="pair">
+            <fieldset>
+              <legend class="label">Género</legend>
+              <div class="opts c3">${GENDERS.map((g, i) => opt('gender', 'g-' + g.id, g.id, g.es, 'MFN'[i], g.ab)).join('')}</div>
+            </fieldset>
+            <fieldset>
+              <legend class="label">Número</legend>
+              <div class="opts c2">${opt('num', 'n-sg', 'sg', 'Singular', 'S', 'Sing.')}${opt('num', 'n-pl', 'pl', 'Plural', 'P', 'Plur.')}</div>
+            </fieldset>
+          </div>
+          <fieldset>
+            <legend class="label">Caso</legend>
+            <div class="opts c3 six">${CASES.map((c, i) => opt('gcase', 'c-' + c.id, c.id, c.es, i + 1, c.ab)).join('')}</div>
+          </fieldset>
+          <div class="actions">
+            <button class="go" id="go" type="submit" disabled>Comprobar</button>
+          </div>
+        </form>
+
+        <section class="result" id="result" aria-live="polite" hidden></section>
+      </div>`;
+
+    const $ = id => root.querySelector('#' + id);
+    const form = $('answer'), go = $('go'), result = $('result'), macrons = $('macrons'), lemma = $('lemma');
+    const score = scoreboard($('stats'), ex.keys);
+    const GROUPS = ['gender', 'gcase', 'num'];
+    const KEYS = { m: 'g-m', f: 'g-f', n: 'g-n', s: 'n-sg', p: 'n-pl',
+      1: 'c-nom', 2: 'c-gen', 3: 'c-dat', 4: 'c-acc', 5: 'c-abl', 6: 'c-voc' };
+    const radios = [...form.querySelectorAll('input[type=radio]')];
+    const chips = [...root.querySelectorAll('#sets input')];
+    const val = g => (form.querySelector(`input[name=${g}]:checked`) || {}).value;
+    const complete = () => GROUPS.every(val);
+    $('practice').open = !phone();
+    macrons.checked = store.macrons;
+    lemma.checked = store.lemma;
+    chips.forEach(c => (c.checked = store.decls.includes(c.value)));
+
+    function renderSummary() {
+      $('psum').textContent = store.decls.length === DECLS.length ? 'Todo al azar'
+        : DECLS.filter(d => store.decls.includes(d.id)).map(d => d.es).join(', ') + ' declinación';
+    }
+
+    function renderCard() {
+      const n = st.noun, shown = show(st.entry.form);
+      $('num').textContent = toRoman(st.n);
+      $('form').textContent = shown;
+      $('form').classList.toggle('long', shown.length > 14);
+      /* Sin enunciado la losa ocupa toda la escena: solo la forma, que es el modo difícil. */
+      $('stage').classList.toggle('solo', !store.lemma);
+      $('card').hidden = !store.lemma;
+      if (!store.lemma) return;
+      $('entry').innerHTML = `
+        <dt>Nominativo</dt><dd lang="la">${esc(show(n.nom))}</dd>
+        <dt>Genitivo</dt><dd lang="la">${esc(show(genTail(n)))}</dd>`;
+      $('gloss').innerHTML = `${esc(n.es)} <span>· ${DECL_ES[n.decl[0]]}</span>`;
+    }
+
+    /* Elige declinación, luego un sustantivo de esa declinación, luego una casilla de su tabla. */
+    function draw() {
+      for (;;) {
+        const pool = NOUNS_BY_DECL[store.decls[rnd(store.decls.length)]];
+        const n = pool[rnd(pool.length)];
+        if (n === st.noun && pool.length > 1) continue;
+        const table = decline(n);
+        return { noun: n, table, entry: table[rnd(table.length)] };
+      }
+    }
+
+    function next() {
+      if (st.checked && phone()) window.scrollTo(0, 0);
+      Object.assign(st, draw(), { checked: false, n: st.n + 1 });
+      radios.forEach(r => { r.checked = false; r.disabled = false; });
+      form.querySelectorAll('.opt').forEach(o => o.classList.remove('right', 'wrong'));
+      result.hidden = true; result.innerHTML = '';
+      go.textContent = 'Comprobar'; go.disabled = true;
+      renderCard();
+    }
+
+    function check() {
+      if (!complete()) return;
+      const n = st.noun;
+      const ans = { gender: val('gender'), gcase: val('gcase'), num: val('num') };
+      const shown = show(st.entry.form);
+      const all = st.table.filter(e => show(e.form) === shown);     /* todos los análisis válidos de esa grafía */
+      const match = all.find(e => sameCase(e, ans));   /* el caso acertado, aunque falle el género */
+      const hit = !!match && ans.gender === n.g;
+      const ref = match || st.entry;
+
+      GROUPS.forEach(g => form.querySelectorAll(`input[name=${g}]`).forEach(r => {
+        const o = r.closest('.opt');
+        if (r.value === (g === 'gender' ? n.g : ref[g])) o.classList.add('right');
+        else if (r.checked) o.classList.add('wrong');
+      }));
+      radios.forEach(r => (r.disabled = true));
+      score.hit(hit);
+
+      const others = all.filter(e => !sameCase(e, ref)).map(describeCase);
+      const col = num => {
+        const rows = st.table.filter(e => e.num === num);
+        const head = `<h3>${num === 'sg' ? 'Singular' : 'Plural'}</h3>`;
+        if (!rows.length) return `<div>${head}<p class="none">no se usa</p></div>`;
+        return `<div>${head}<ol lang="la">${rows.map(e =>
+          `<li${sameCase(e, ref) ? ' class="hit"' : ''}><i>${CASE_AB[e.gcase]}</i>${esc(show(e.form))}</li>`).join('')}</ol></div>`;
+      };
+      result.innerHTML = `
+        <div>
+          <p class="verdict ${hit ? 'ok' : 'bad'}">${hit ? 'Correcto' : 'No es correcto'}</p>
+          <p><span class="lat" lang="la">${esc(shown)}</span> es el ${describeCase(ref)} de
+             <span class="lat" lang="la">${esc(show(nounEntry(n)))}</span>, «${esc(n.es)}»,
+             sustantivo ${GENDER_ES[n.g]} de la ${DECL_ES[n.decl[0]]}.</p>
+          ${others.length ? `<p class="also">Esta forma se escribe igual en otros casos, que también se aceptan: ${others.join('; ')}.</p>` : ''}
+        </div>
+        <div class="paradigm cases">
+          <p class="label">${DECL_ES[n.decl[0]]}, ${GENDER_ES[n.g]}</p>
+          <div class="cols">${col('sg')}${col('pl')}</div>
+        </div>`;
+      result.hidden = false;
+      st.checked = true;
+      go.textContent = 'Siguiente sustantivo';
+      go.focus({ preventScroll: true });
+      result.scrollIntoView({ block: phone() ? 'start' : 'nearest', behavior: 'smooth' });
+    }
+
+    form.addEventListener('change', e => { if (e.target.type === 'radio' && !st.checked) go.disabled = !complete(); });
+    form.addEventListener('submit', e => { e.preventDefault(); st.checked ? next() : check(); });
+    macrons.addEventListener('change', () => {
+      store.macrons = macrons.checked; save(store);
+      if (st.checked) next(); else renderCard();
+    });
+    lemma.addEventListener('change', () => { store.lemma = lemma.checked; save(store); renderCard(); });
+
+    function setDecls() {
+      store.decls = chips.filter(c => c.checked).map(c => c.value); save(store);
+      renderSummary();
+      st.n--; next();                                  /* carta nueva sin avanzar la numeración */
+    }
+    chips.forEach(c => c.addEventListener('change', () => {
+      if (!chips.some(x => x.checked)) { c.checked = true; return; }   /* siempre queda al menos una */
+      setDecls();
+    }));
+    $('all').addEventListener('click', () => { chips.forEach(c => (c.checked = true)); setDecls(); });
+
+    keyHandler = e => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'enter') {
+        if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+        e.preventDefault();
+        if (!go.disabled) form.requestSubmit();
+        return;
+      }
+      if (st.checked || !Object.prototype.hasOwnProperty.call(KEYS, k)) return;
+      const r = $(KEYS[k]);
+      r.checked = true; r.dispatchEvent(new Event('change', { bubbles: true }));
+    };
+
+    renderSummary();
+    score.render();
     next();
   }
 })();

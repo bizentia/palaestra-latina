@@ -1,5 +1,5 @@
 /* Palaestra Latina: funciona sin conexión después de la primera visita. */
-const CACHE = 'palaestra-v1';
+const CACHE = 'palaestra-v2';
 const SHELL = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 const FONT_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com'];
 

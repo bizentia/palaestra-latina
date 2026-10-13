@@ -1,7 +1,7 @@
 {
   "name": "Palaestra Latina",
   "short_name": "Palaestra",
-  "description": "Práctica de conjugación verbal en latín clásico.",
+  "description": "Práctica de conjugación verbal y declinación nominal en latín clásico.",
   "lang": "es",
   "start_url": "./",
   "scope": "./",
